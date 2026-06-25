@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>נגרות אייל — עובד</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #f0ebe4;
+      color: #2d2d2d;
+      min-height: 100vh;
+      padding-bottom: 80px;
+    }
+
+    /* HEADER */
+    .header {
+      background: #5a3e00;
+      color: #fff;
+      padding: 14px 16px 0;
+      position: sticky; top: 0; z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    .header-top {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 10px;
+    }
+    .header-title { font-size: 18px; font-weight: 700; }
+    .header-sub { font-size: 12px; opacity: 0.7; margin-top: 2px; }
+    .refresh-btn {
+      background: rgba(255,255,255,0.15); border: none; color: #fff;
+      border-radius: 8px; padding: 7px 12px; font-size: 14px; cursor: pointer;
+    }
+    .tabs {
+      display: flex; gap: 6px; overflow-x: auto; padding-bottom: 0;
+      scrollbar-width: none;
+    }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab {
+      flex-shrink: 0; padding: 8px 14px; border-radius: 10px 10px 0 0;
+      border: none; background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.8);
+      font-size: 14px; cursor: pointer; font-family: inherit;
+      white-space: nowrap;
+    }
+    .tab.active { background: #f0ebe4; color: #5a3e00; font-weight: 700; }
+
+    /* CONTENT */
+    .content { padding: 14px 14px 0; max-width: 600px; margin: 0 auto; }
+
+    .loader {
+      text-align: center; padding: 60px 20px;
+      color: #888; font-size: 16px;
+    }
+    .spinner {
+      width: 36px; height: 36px; border: 3px solid #ddd;
+      border-top-color: #BA7517; border-radius: 50%;
+      animation: spin 0.8s linear infinite; margin: 0 auto 14px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* FURNITURE CARD */
+    .furn-card {
+      background: #fff; border-radius: 14px;
+      padding: 14px; margin-bottom: 14px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    .furn-header {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      margin-bottom: 12px;
+    }
+    .furn-num { font-size: 12px; color: #BA7517; font-weight: 700; }
+    .furn-name { font-size: 17px; font-weight: 700; color: #2d2d2d; }
+    .furn-finish { font-size: 13px; color: #888; margin-top: 2px; }
+
+    /* SECTION TITLE */
+    .section-title {
+      font-size: 13px; font-weight: 700; color: #BA7517;
+      text-transform: uppercase; letter-spacing: 0.5px;
+      margin: 12px 0 8px;
+      padding-bottom: 4px; border-bottom: 1.5px solid #f0ebe4;
+    }
+
+    /* HARDWARE TABLE */
+    .hw-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .hw-table th {
+      text-align: right; color: #888; font-weight: 600;
+      padding: 4px 6px; font-size: 12px;
+      border-bottom: 1px solid #eee;
+    }
+    .hw-table td { padding: 6px 6px; border-bottom: 1px solid #f5f5f5; color: #333; }
+    .hw-table tr:last-child td { border-bottom: none; }
+    .hw-badge {
+      display: inline-block; background: #fff8e1; color: #BA7517;
+      border-radius: 6px; padding: 2px 7px; font-size: 12px; font-weight: 700;
+    }
+    .hw-empty { color: #bbb; font-size: 13px; padding: 6px 0; }
+
+    /* FOLLOWUP LIST */
+    .followup-item {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 9px 10px; border-radius: 8px;
+      background: #fff8e1; border: 1.5px solid #ffe082;
+      margin-bottom: 6px; transition: all 0.2s;
+    }
+    .followup-item.done {
+      background: #f5f5f5; border-color: #e0e0e0; opacity: 0.6;
+    }
+    .followup-check {
+      width: 22px; height: 22px; flex-shrink: 0;
+      accent-color: #43a047; cursor: pointer; margin-top: 1px;
+    }
+    .followup-text {
+      flex: 1; font-size: 14px; color: #5a3e00; line-height: 1.5;
+    }
+    .followup-item.done .followup-text {
+      text-decoration: line-through; color: #999;
+    }
+    .followup-empty { color: #bbb; font-size: 13px; padding: 6px 0; }
+
+    /* SNACKBAR */
+    .snackbar {
+      position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: #333; color: #fff; padding: 10px 20px; border-radius: 20px;
+      font-size: 14px; opacity: 0; transition: all 0.3s; pointer-events: none;
+      white-space: nowrap; z-index: 999;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .snackbar.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* BOTTOM NAV */
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: #fff; border-top: 1px solid #eee;
+      display: flex; z-index: 100;
+      box-shadow: 0 -2px 8px rgba(0,0,0,0.06);
+    }
+    .bnav-btn {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      padding: 8px 4px 10px; border: none; background: none; cursor: pointer;
+      font-family: inherit; color: #aaa; font-size: 11px; gap: 3px;
+    }
+    .bnav-btn.active { color: #BA7517; }
+    .bnav-icon { font-size: 22px; line-height: 1; }
+
+    /* SCREENS */
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    /* PROJECT HEADER */
+    .proj-section {
+      background: #fff; border-radius: 12px; padding: 12px 14px;
+      margin-bottom: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+    }
+    .proj-name { font-size: 16px; font-weight: 700; color: #5a3e00; }
+    .proj-client { font-size: 13px; color: #888; margin-top: 3px; }
+
+    .no-data {
+      text-align: center; color: #bbb; font-size: 14px;
+      padding: 30px 20px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <div>
+      <div class="header-title">🔧 נגרות אייל</div>
+      <div class="header-sub" id="last-update">טוען...</div>
+    </div>
+    <button class="refresh-btn" onclick="loadData()">רענן ↺</button>
+  </div>
+  <div class="tabs" id="tabs-container"></div>
+</div>
+
+<div id="hw-screen" class="screen active">
+  <div class="content" id="hw-content">
+    <div class="loader"><div class="spinner"></div>טוען נתונים...</div>
+  </div>
+</div>
+
+<div id="inst-screen" class="screen">
+  <div class="content" id="inst-content">
+    <div class="loader"><div class="spinner"></div>טוען נתונים...</div>
+  </div>
+</div>
+
+<div class="snackbar" id="snackbar"></div>
+
+<nav class="bottom-nav">
+  <button class="bnav-btn active" id="bnav-hw" onclick="switchScreen('hw')">
+    <span class="bnav-icon">🔩</span>
+    פרזול
+  </button>
+  <button class="bnav-btn" id="bnav-inst" onclick="switchScreen('inst')">
+    <span class="bnav-icon">🔧</span>
+    התקנות
+  </button>
+</nav>
+
+<script>
+const API = 'https://script.google.com/macros/s/AKfycbwck5K0tuFXvFUuLbJtf0JOSnNT5PSEjO9TDB5H7QEO3rHAF1lpFOWEFIgzGjM42BKS/exec';
+const KEY = 'nagaria-ayal-2026';
+
+let projects = [];
+let instData = {};
+let currentProjectId = null;
+let currentScreen = 'hw';
+
+const HW_COMPANY_LABELS = {
+  'domicil-mobila': 'דומיסיל מוביל',
+  'domicil-vision': 'דומיסיל ויז\'ן',
+  'blum': 'בלום',
+  'grass': 'גראס'
+};
+
+function esc(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showSnack(msg) {
+  const s = document.getElementById('snackbar');
+  s.textContent = msg;
+  s.classList.add('show');
+  setTimeout(() => s.classList.remove('show'), 2500);
+}
+
+async function api(payload) {
+  try {
+    const r = await fetch(API, {
+      method: 'POST',
+      body: JSON.stringify({ key: KEY, ...payload })
+    });
+    return await r.json();
+  } catch(e) {
+    return { success: false, error: e.message };
+  }
+}
+
+// ===== LOAD =====
+async function loadData() {
+  document.getElementById('last-update').textContent = 'מתחבר...';
+  try {
+    const r = await api({ action: 'getData' });
+    if (r.success) {
+      projects = r.projects || [];
+      if (!currentProjectId && projects.length > 0) {
+        currentProjectId = projects[0].id;
+      }
+      await loadInstallations();
+      renderTabs();
+      renderCurrentScreen();
+      const now = new Date().toLocaleTimeString('he-IL', {hour:'2-digit',minute:'2-digit'});
+      document.getElementById('last-update').textContent = 'עודכן ' + now;
+    } else {
+      document.getElementById('last-update').textContent = 'שגיאה בטעינה';
+      document.getElementById('hw-content').innerHTML = '<div class="loader" style="color:#c62828">⚠ שגיאה בטעינה<br><small>לחץ רענן</small></div>';
+    }
+  } catch(e) {
+    document.getElementById('last-update').textContent = 'שגיאה';
+  }
+}
+
+async function loadInstallations() {
+  const r = await api({ action: 'getInstallations' });
+  if (r.success && r.data) instData = r.data;
+}
+
+// ===== TABS =====
+function renderTabs() {
+  const container = document.getElementById('tabs-container');
+  container.innerHTML = projects.map(p =>
+    `<button class="tab ${currentProjectId===p.id?'active':''}"
+      onclick="switchProject('${p.id}')">${esc(p.name)}</button>`
+  ).join('');
+}
+
+function switchProject(id) {
+  currentProjectId = id;
+  renderTabs();
+  renderCurrentScreen();
+  window.scrollTo(0,0);
+}
+
+function switchScreen(screen) {
+  currentScreen = screen;
+  document.getElementById('hw-screen').classList.toggle('active', screen==='hw');
+  document.getElementById('inst-screen').classList.toggle('active', screen==='inst');
+  document.getElementById('bnav-hw').classList.toggle('active', screen==='hw');
+  document.getElementById('bnav-inst').classList.toggle('active', screen==='inst');
+  renderCurrentScreen();
+}
+
+function renderCurrentScreen() {
+  if (currentScreen === 'hw') renderHW();
+  else renderInst();
+}
+
+// ===== HARDWARE SCREEN =====
+function renderHW() {
+  const proj = projects.find(p => p.id === currentProjectId);
+  const container = document.getElementById('hw-content');
+  if (!proj) { container.innerHTML = '<div class="no-data">אין פרויקט נבחר</div>'; return; }
+
+  const spaces = proj.spaces || [];
+  const spacesWithHW = spaces.filter(s => s.hardware && s.hardware.rows && s.hardware.rows.length > 0);
+
+  if (spacesWithHW.length === 0) {
+    container.innerHTML = '<div class="no-data">אין פרזול מוזן לפרויקט זה</div>';
+    return;
+  }
+
+  container.innerHTML = spacesWithHW.map(s => {
+    const hw = s.hardware;
+    const companyLabel = HW_COMPANY_LABELS[hw.company] || hw.company || '';
+    const rowsHTML = hw.rows.map(r => `
+      <tr>
+        <td><span class="hw-badge">${r.qty}</span></td>
+        <td>${r.dep} מ"מ</td>
+        <td>${r.back} מ"מ</td>
+        <td>${r.heavy ? 'כבד' : 'רגיל'}</td>
+        <td>${r.inner ? '✓' : ''}</td>
+        <td>${r.gallery ? '✓' : ''}</td>
+      </tr>`).join('');
+
+    const dnote = hw.dnote ? `<div style="font-size:12px;color:#888;margin-top:6px">📝 ${esc(hw.dnote)}</div>` : '';
+    const extra = hw.extra ? `<div style="font-size:12px;color:#888;margin-top:4px">➕ ${esc(hw.extra)}</div>` : '';
+
+    return `<div class="furn-card">
+      <div class="furn-header">
+        <div>
+          <div class="furn-num">${esc(s.itemNum||'')}</div>
+          <div class="furn-name">${esc(s.name)}</div>
+          <div class="furn-finish">${esc(s.finish||'')}</div>
+        </div>
+        <div style="font-size:13px;color:#BA7517;font-weight:600">${esc(companyLabel)}</div>
+      </div>
+      <div class="section-title">פרזול מוזמן</div>
+      <div style="color:${hw.color?'#333':'#bbb'};font-size:13px;margin-bottom:6px">
+        🎨 ${hw.color ? esc(hw.color) : 'לא הוגדר צבע'}
+      </div>
+      <table class="hw-table">
+        <thead><tr>
+          <th>כמות</th><th>עומק</th><th>גב</th><th>סוג</th><th>פנימי</th><th>גלריה</th>
+        </tr></thead>
+        <tbody>${rowsHTML}</tbody>
+      </table>
+      ${dnote}${extra}
+    </div>`;
+  }).join('');
+}
+
+// ===== INSTALLATION SCREEN =====
+function renderInst() {
+  const proj = projects.find(p => p.id === currentProjectId);
+  const container = document.getElementById('inst-content');
+  if (!proj) { container.innerHTML = '<div class="no-data">אין פרויקט נבחר</div>'; return; }
+
+  const projInst = instData[currentProjectId] || {};
+  const followup = projInst.followup || {};
+
+  const spaces = proj.spaces || [];
+  const spacesWithFollowup = spaces.filter(s => followup[s.id] && followup[s.id].length > 0);
+
+  if (spacesWithFollowup.length === 0) {
+    container.innerHTML = '<div class="no-data">אין השלמות מוזנות לפרויקט זה</div>';
+    return;
+  }
+
+  container.innerHTML = spacesWithFollowup.map(s => {
+    const items = followup[s.id] || [];
+    const done = items.filter(x=>x.done).length;
+    const itemsHTML = items.map((item, i) => `
+      <div class="followup-item ${item.done?'done':''}" id="fi-${s.id}-${i}">
+        <input type="checkbox" class="followup-check" ${item.done?'checked':''}
+          onchange="toggleFollowup('${proj.id}','${s.id}',${i},this.checked)">
+        <span class="followup-text">${esc(item.text)}</span>
+      </div>`).join('');
+
+    return `<div class="furn-card">
+      <div class="furn-header">
+        <div>
+          <div class="furn-num">${esc(s.itemNum||'')}</div>
+          <div class="furn-name">${esc(s.name)}</div>
+        </div>
+        <div style="font-size:13px;font-weight:700;color:${done===items.length?'#43a047':'#BA7517'}">
+          ${done}/${items.length}
+        </div>
+      </div>
+      ${itemsHTML}
+    </div>`;
+  }).join('');
+}
+
+// ===== TOGGLE FOLLOWUP =====
+async function toggleFollowup(projectId, spaceId, idx, isDone) {
+  const proj = projects.find(p => p.id === projectId);
+  const projInst = instData[projectId] || {};
+  const followup = projInst.followup || {};
+  const items = followup[spaceId] || [];
+  if (!items[idx]) return;
+  items[idx].done = isDone;
+  if (!instData[projectId]) instData[projectId] = {};
+  if (!instData[projectId].followup) instData[projectId].followup = {};
+  instData[projectId].followup[spaceId] = items;
+
+  renderInst();
+
+  const fullData = instData[projectId];
+  const r = await api({ action: 'updateInstallation', projectId, data: fullData });
+  showSnack(r.success ? (isDone ? '✓ סומן כמוכן' : '↩ חזר לפתוח') : '⚠ שגיאה בשמירה');
+}
+
+loadData();
+</script>
+</body>
+</html>
+PYEOF
