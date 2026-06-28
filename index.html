@@ -233,10 +233,12 @@ async function api(payload) {
   try {
     const r = await fetch(API, {
       method: 'POST',
+      headers: {'Content-Type': 'text/plain'},
       body: JSON.stringify({ key: KEY, ...payload })
     });
     return await r.json();
   } catch(e) {
+    console.error('API error:', e.message);
     return { success: false, error: e.message };
   }
 }
@@ -419,4 +421,3 @@ loadData();
 </script>
 </body>
 </html>
-PYEOF
