@@ -249,7 +249,7 @@ async function loadData() {
   try {
     const r = await api({ action: 'getData' });
     if (r.success) {
-      projects = r.projects || [];
+      projects = r.data || [];
       if (!currentProjectId && projects.length > 0) {
         currentProjectId = projects[0].id;
       }
