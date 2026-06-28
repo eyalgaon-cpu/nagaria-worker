@@ -81,20 +81,46 @@
       padding-bottom: 4px; border-bottom: 1.5px solid #f0ebe4;
     }
 
-    /* HARDWARE TABLE */
-    .hw-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .hw-table th {
-      text-align: right; color: #888; font-weight: 600;
-      padding: 4px 6px; font-size: 12px;
-      border-bottom: 1px solid #eee;
+    /* HARDWARE LAYOUT */
+    .hw-layout { display: flex; gap: 10px; }
+    .hw-furn-list {
+      width: 120px; flex-shrink: 0;
+      background: #fff; border-radius: 12px; padding: 6px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08); align-self: flex-start;
     }
-    .hw-table td { padding: 6px 6px; border-bottom: 1px solid #f5f5f5; color: #333; }
-    .hw-table tr:last-child td { border-bottom: none; }
+    .hw-detail {
+      flex: 1; background: #fff; border-radius: 12px; padding: 14px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    .furn-row-hw {
+      padding: 8px 6px; border-radius: 8px; cursor: pointer;
+      display: flex; flex-direction: column; gap: 2px;
+      border: 1.5px solid transparent; margin-bottom: 4px;
+    }
+    .furn-row-hw.active-edit { background: #fff8e1; border-color: #BA7517; }
+    .furn-row-code { font-size: 11px; color: #BA7517; font-weight: 700; }
+    .furn-row-name { font-size: 12px; color: #333; line-height: 1.3; }
+    .furn-row-hw.has-hw .furn-row-name { font-weight: 600; }
+    .hw-dot { font-size: 10px; color: #43a047; }
+    .hw-row-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 0; border-bottom: 1px solid #f5f5f5;
+    }
+    .hw-qty-badge {
+      background: #fff8e1; color: #BA7517; border-radius: 6px;
+      padding: 3px 8px; font-size: 13px; font-weight: 700; flex-shrink: 0;
+    }
+    .hw-row-desc { font-size: 13px; color: #333; }
+    .hw-note { font-size: 12px; color: #888; margin-top: 8px; }
+    .copy-hw-btn {
+      margin-top: 14px; width: 100%; padding: 10px;
+      background: #25D366; color: #fff; border: none; border-radius: 10px;
+      font-size: 14px; font-family: inherit; font-weight: 600; cursor: pointer;
+    }
     .hw-badge {
       display: inline-block; background: #fff8e1; color: #BA7517;
       border-radius: 6px; padding: 2px 7px; font-size: 12px; font-weight: 700;
     }
-    .hw-empty { color: #bbb; font-size: 13px; padding: 6px 0; }
 
     /* FOLLOWUP LIST */
     .followup-item {
@@ -303,57 +329,114 @@ function renderCurrentScreen() {
 }
 
 // ===== HARDWARE SCREEN =====
-function renderHW() {
+let hwData = {};
+let hwCurrentFurnId = null;
+
+const HW_COMP_LABEL = {
+  'domicil-mobila': 'דומיסיל מוביל',
+  'domicil-vision': "דומיסיל ויז'ן",
+  'blum': 'בלום',
+  'grass': 'גראס'
+};
+
+async function renderHW() {
   const proj = projects.find(p => p.id === currentProjectId);
   const container = document.getElementById('hw-content');
   if (!proj) { container.innerHTML = '<div class="no-data">אין פרויקט נבחר</div>'; return; }
 
-  const spaces = proj.spaces || [];
-  const spacesWithHW = spaces.filter(s => s.hardware && s.hardware.rows && s.hardware.rows.length > 0);
-
-  if (spacesWithHW.length === 0) {
-    container.innerHTML = '<div class="no-data">אין פרזול מוזן לפרויקט זה</div>';
-    return;
+  // Load hw data if not cached
+  if (!hwData[currentProjectId]) {
+    container.innerHTML = '<div class="loader"><div class="spinner"></div>טוען פרזול...</div>';
+    const r = await api({ action: 'getHardware', projectId: currentProjectId });
+    hwData[currentProjectId] = (r.success && r.data) ? r.data : {};
   }
 
-  container.innerHTML = spacesWithHW.map(s => {
-    const hw = s.hardware;
-    const companyLabel = HW_COMPANY_LABELS[hw.company] || hw.company || '';
-    const rowsHTML = hw.rows.map(r => `
-      <tr>
-        <td><span class="hw-badge">${r.qty}</span></td>
-        <td>${r.dep} מ"מ</td>
-        <td>${r.back} מ"מ</td>
-        <td>${r.heavy ? 'כבד' : 'רגיל'}</td>
-        <td>${r.inner ? '✓' : ''}</td>
-        <td>${r.gallery ? '✓' : ''}</td>
-      </tr>`).join('');
+  const data = hwData[currentProjectId];
+  const spaces = proj.spaces || [];
+  hwCurrentFurnId = hwCurrentFurnId || (spaces[0] ? spaces[0].id : null);
 
-    const dnote = hw.dnote ? `<div style="font-size:12px;color:#888;margin-top:6px">📝 ${esc(hw.dnote)}</div>` : '';
-    const extra = hw.extra ? `<div style="font-size:12px;color:#888;margin-top:4px">➕ ${esc(hw.extra)}</div>` : '';
-
-    return `<div class="furn-card">
-      <div class="furn-header">
-        <div>
-          <div class="furn-num">${esc(s.itemNum||'')}</div>
-          <div class="furn-name">${esc(s.name)}</div>
-          <div class="furn-finish">${esc(s.finish||'')}</div>
-        </div>
-        <div style="font-size:13px;color:#BA7517;font-weight:600">${esc(companyLabel)}</div>
-      </div>
-      <div class="section-title">פרזול מוזמן</div>
-      <div style="color:${hw.color?'#333':'#bbb'};font-size:13px;margin-bottom:6px">
-        🎨 ${hw.color ? esc(hw.color) : 'לא הוגדר צבע'}
-      </div>
-      <table class="hw-table">
-        <thead><tr>
-          <th>כמות</th><th>עומק</th><th>גב</th><th>סוג</th><th>פנימי</th><th>גלריה</th>
-        </tr></thead>
-        <tbody>${rowsHTML}</tbody>
-      </table>
-      ${dnote}${extra}
+  const listHTML = spaces.map(s => {
+    const hasHw = !!(data[s.id] && data[s.id].rows && data[s.id].rows.some(r => r.qty > 0));
+    return `<div class="furn-row-hw ${hasHw?'has-hw':''} ${s.id===hwCurrentFurnId?'active-edit':''}"
+      onclick="hwSelectFurn('${s.id}')">
+      <span class="furn-row-code">${esc(s.itemNum||'')}</span>
+      <span class="furn-row-name">${esc(s.name)}</span>
+      ${hasHw ? '<span class="hw-dot">✓</span>' : ''}
     </div>`;
   }).join('');
+
+  const d = hwCurrentFurnId ? data[hwCurrentFurnId] : null;
+  const currSpace = spaces.find(s => s.id === hwCurrentFurnId);
+  const detailHTML = hwRenderDetail(d, currSpace);
+
+  container.innerHTML = `
+    <div class="hw-layout">
+      <div class="hw-furn-list" id="hw-furn-list">${listHTML}</div>
+      <div class="hw-detail" id="hw-detail">${detailHTML}</div>
+    </div>`;
+}
+
+function hwSelectFurn(id) {
+  hwCurrentFurnId = id;
+  renderHW();
+}
+
+function hwRenderDetail(d, space) {
+  if (!d || !d.rows || !d.rows.some(r => r.qty > 0)) {
+    return '<div class="no-data" style="padding:30px 10px">אין פרזול מוזן לרהיט זה</div>';
+  }
+  const compLabel = HW_COMP_LABEL[d.company] || d.company || '';
+  const rowsHTML = d.rows.filter(r => r.qty > 0).map(r => {
+    const parts = [];
+    if (r.inner) parts.push('פנימית');
+    parts.push(`עומק ${r.dep}`);
+    if (r.back) parts.push(`גב ${r.back}`);
+    if (r.gallery) parts.push('+ גלריה');
+    return `<div class="hw-row-item">
+      <span class="hw-qty-badge">${r.qty}</span>
+      <span class="hw-row-desc">${r.heavy ? 'כבד' : 'רגיל'} — ${parts.join(' ')}</span>
+    </div>`;
+  }).join('');
+
+  const dnote = d.dnote ? `<div class="hw-note">📝 ${esc(d.dnote)}</div>` : '';
+  const extra = d.extra ? `<div class="hw-note">➕ ${esc(d.extra)}</div>` : '';
+
+  return `
+    <div style="font-size:13px;font-weight:700;color:#BA7517;margin-bottom:4px">${esc(compLabel)}</div>
+    <div style="font-size:13px;color:#555;margin-bottom:10px">🎨 ${esc(d.color||'')}</div>
+    ${rowsHTML}
+    ${dnote}${extra}
+    <button class="copy-hw-btn" onclick="hwCopyWorkshop()">📋 העתק לוואטסאפ</button>`;
+}
+
+function hwCopyWorkshop() {
+  const proj = projects.find(p => p.id === currentProjectId);
+  const data = hwData[currentProjectId] || {};
+  const space = proj && proj.spaces.find(s => s.id === hwCurrentFurnId);
+  const d = data[hwCurrentFurnId];
+  if (!d || !space) return;
+
+  const lines = [`*חלוקת פרזול — ${proj.name}*`, ''];
+  lines.push(`*${esc(space.itemNum||'')} ${esc(space.name)}:*`);
+  const compLabel = HW_COMP_LABEL[d.company] || d.company || '';
+  lines.push(`חברה: ${compLabel} | צבע: ${d.color||''}`);
+  d.rows.filter(r=>r.qty>0).forEach(r => {
+    const parts = [];
+    if (r.inner) parts.push('פנימית');
+    parts.push(`עומק ${r.dep}`);
+    if (r.back) parts.push(`גב ${r.back}`);
+    if (r.gallery) parts.push('+ גלריה');
+    lines.push(`• ${r.qty} ${r.heavy?'כבד':'רגיל'} ${parts.join(' ')}`);
+  });
+  if (d.extra) lines.push('', 'נוסף:', ...d.extra.split('\n').filter(l=>l.trim()).map(l=>'• '+l.trim()));
+
+  const text = lines.join('\n');
+  navigator.clipboard.writeText(text).then(() => showSnack('✓ הועתק')).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    showSnack('✓ הועתק');
+  });
 }
 
 // ===== INSTALLATION SCREEN =====
