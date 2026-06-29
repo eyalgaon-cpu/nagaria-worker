@@ -466,11 +466,11 @@ function renderInst() {
 
   // ===== 1. כלים קבועים =====
   const doneFixed = INST_FIXED_ITEMS.filter(k => fixed[k]).length;
-  const fixedHTML = INST_FIXED_ITEMS.map(item => {
+  const fixedHTML = INST_FIXED_ITEMS.map((item, fi) => {
     const checked = !!fixed[item];
     return `<div class="followup-item ${checked?'done':''}">
       <input type="checkbox" class="followup-check" ${checked?'checked':''}
-        onchange="toggleFixed('${currentProjectId}','${item}',this.checked)">
+        onchange="toggleFixedByIdx('${currentProjectId}',${fi},this.checked)">
       <span class="followup-text">${esc(item)}</span>
     </div>`;
   }).join('');
@@ -541,7 +541,9 @@ function renderInst() {
   container.innerHTML = html;
 }
 
-async function toggleFixed(projectId, item, isDone) {
+async function toggleFixedByIdx(projectId, idx, isDone) {
+  const item = INST_FIXED_ITEMS[idx];
+  if (!item) return;
   if (!instData[projectId]) instData[projectId] = { fixed: {}, special: [], followup: {} };
   if (!instData[projectId].fixed) instData[projectId].fixed = {};
   instData[projectId].fixed[item] = isDone;
