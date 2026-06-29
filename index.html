@@ -447,25 +447,51 @@ function renderInst() {
 
   const projInst = instData[currentProjectId] || {};
   const followup = projInst.followup || {};
+  const special = projInst.special || [];
 
   const spaces = proj.spaces || [];
   const spacesWithFollowup = spaces.filter(s => followup[s.id] && followup[s.id].length > 0);
+  const hasAnything = spacesWithFollowup.length > 0 || special.length > 0;
 
-  if (spacesWithFollowup.length === 0) {
+  if (!hasAnything) {
     container.innerHTML = '<div class="no-data">אין השלמות מוזנות לפרויקט זה</div>';
     return;
   }
 
-  container.innerHTML = spacesWithFollowup.map(s => {
+  let html = '';
+
+  // כלים קבועים
+  if (special.length > 0) {
+    const done = special.filter(x=>x.done).length;
+    const itemsHTML = special.map((item, i) =>
+      `<div class="followup-item ${item.done?'done':''}">
+        <input type="checkbox" class="followup-check" ${item.done?'checked':''}
+          onchange="toggleSpecial('${proj.id}',${i},this.checked)">
+        <span class="followup-text">${esc(item.text)}</span>
+      </div>`
+    ).join('');
+    html += `<div class="furn-card">
+      <div class="furn-header">
+        <div><div class="furn-name">🧰 כלים קבועים</div></div>
+        <div style="font-size:13px;font-weight:700;color:${done===special.length?'#43a047':'#BA7517'}">
+          ${done}/${special.length}
+        </div>
+      </div>
+      ${itemsHTML}
+    </div>`;
+  }
+
+  // השלמות לפי רהיט
+  html += spacesWithFollowup.map(s => {
     const items = followup[s.id] || [];
     const done = items.filter(x=>x.done).length;
-    const itemsHTML = items.map((item, i) => `
-      <div class="followup-item ${item.done?'done':''}" id="fi-${s.id}-${i}">
+    const itemsHTML = items.map((item, i) =>
+      `<div class="followup-item ${item.done?'done':''}">
         <input type="checkbox" class="followup-check" ${item.done?'checked':''}
           onchange="toggleFollowup('${proj.id}','${s.id}',${i},this.checked)">
         <span class="followup-text">${esc(item.text)}</span>
-      </div>`).join('');
-
+      </div>`
+    ).join('');
     return `<div class="furn-card">
       <div class="furn-header">
         <div>
@@ -479,9 +505,23 @@ function renderInst() {
       ${itemsHTML}
     </div>`;
   }).join('');
+
+  container.innerHTML = html;
 }
 
-// ===== TOGGLE FOLLOWUP =====
+async function toggleSpecial(projectId, idx, isDone) {
+  const projInst = instData[projectId] || {};
+  const special = projInst.special || [];
+  if (!special[idx]) return;
+  special[idx].done = isDone;
+  if (!instData[projectId]) instData[projectId] = {};
+  instData[projectId].special = special;
+  renderInst();
+  const r = await api({ action: 'updateInstallation', projectId, data: instData[projectId] });
+  showSnack(r.success ? (isDone ? '✓ סומן כמוכן' : '↩ חזר לפתוח') : '⚠ שגיאה בשמירה');
+}
+
+
 async function toggleFollowup(projectId, spaceId, idx, isDone) {
   const proj = projects.find(p => p.id === projectId);
   const projInst = instData[projectId] || {};
