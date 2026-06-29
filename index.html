@@ -560,5 +560,7 @@ async function toggleSpecial(projectId, idx, isDone) {
   const r = await api({ action: 'updateInstallation', projectId, data: instData[projectId] });
   showSnack(r.success ? (isDone ? '✓ סומן' : '↩ הוסר') : '⚠ שגיאה');
 }
-
->
+loadData();
+</script>
+</body>
+</html>
