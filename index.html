@@ -185,6 +185,31 @@
       text-align: center; color: #bbb; font-size: 14px;
       padding: 30px 20px;
     }
+
+    /* PRODUCTION SCREEN */
+    .prod-pct {
+      font-size: 14px; font-weight: 700; color: #BA7517;
+      background: #fff8e1; border-radius: 8px; padding: 3px 10px;
+    }
+    .prod-pct.done { color: #fff; background: #43a047; }
+    .steps-section { margin-top: 10px; }
+    .steps-label {
+      font-size: 11px; font-weight: 700; color: #aaa;
+      margin-bottom: 5px; letter-spacing: 0.5px;
+    }
+    .steps-label.fronts { color: #9b59b6; }
+    .steps-label.body { color: #e08c1a; }
+    .steps-row { display: flex; flex-wrap: wrap; gap: 6px; }
+    .step-chip {
+      font-size: 12px; padding: 4px 9px; border-radius: 8px;
+      background: #f0f0f0; color: #999; font-weight: 600;
+    }
+    .step-chip.done { background: #e8f5e9; color: #2e7d32; }
+    .step-chip.done-assembly { background: #43a047; color: #fff; }
+    .phase-header-mini {
+      font-size: 12px; font-weight: 700; color: #BA7517;
+      margin: 4px 0 8px; padding-bottom: 4px;
+    }
   </style>
 </head>
 <body>
@@ -212,12 +237,22 @@
   </div>
 </div>
 
+<div id="prod-screen" class="screen">
+  <div class="content" id="prod-content">
+    <div class="loader"><div class="spinner"></div>טוען נתונים...</div>
+  </div>
+</div>
+
 <div class="snackbar" id="snackbar"></div>
 
 <nav class="bottom-nav">
   <button class="bnav-btn active" id="bnav-hw" onclick="switchScreen('hw')">
     <span class="bnav-icon">🔩</span>
     פרזול
+  </button>
+  <button class="bnav-btn" id="bnav-prod" onclick="switchScreen('prod')">
+    <span class="bnav-icon">🏭</span>
+    ייצור
   </button>
   <button class="bnav-btn" id="bnav-inst" onclick="switchScreen('inst')">
     <span class="bnav-icon">🔧</span>
@@ -318,14 +353,95 @@ function switchScreen(screen) {
   currentScreen = screen;
   document.getElementById('hw-screen').classList.toggle('active', screen==='hw');
   document.getElementById('inst-screen').classList.toggle('active', screen==='inst');
+  document.getElementById('prod-screen').classList.toggle('active', screen==='prod');
   document.getElementById('bnav-hw').classList.toggle('active', screen==='hw');
   document.getElementById('bnav-inst').classList.toggle('active', screen==='inst');
+  document.getElementById('bnav-prod').classList.toggle('active', screen==='prod');
   renderCurrentScreen();
 }
 
 function renderCurrentScreen() {
   if (currentScreen === 'hw') renderHW();
+  else if (currentScreen === 'prod') renderProd();
   else renderInst();
+}
+
+// ===== PRODUCTION SCREEN =====
+const STEPS_BODY = [
+  {key:'planning', label:'Pytha'},
+  {key:'mpr',      label:'MPR'},
+  {key:'cnc',      label:'CNC'},
+  {key:'edges',    label:'קנטים'},
+  {key:'assembly', label:'הרכבה'},
+];
+const STEPS_FRONTS = [
+  {key:'planning_f', label:'Pytha'},
+  {key:'mpr_f',      label:'MPR'},
+  {key:'cnc_f',      label:'CNC'},
+  {key:'edges_f',    label:'קנטים'},
+  {key:'fronts',     label:'לצבעי'},
+  {key:'assembly_f', label:'הרכבה'},
+];
+const stepDone = (sp, key) => key==='fronts' ? !!(sp.steps && sp.steps[key]) : !!(sp.steps && sp.steps[key]===true);
+const furniturePct = sp => {
+  if (!sp.steps) return 0;
+  const total = STEPS_BODY.length + STEPS_FRONTS.length;
+  const done = STEPS_BODY.filter(s=>stepDone(sp,s.key)).length +
+               STEPS_FRONTS.filter(s=>stepDone(sp,s.key)).length;
+  return Math.round(done/total*100);
+};
+
+function renderProd() {
+  const proj = projects.find(p => p.id === currentProjectId);
+  const container = document.getElementById('prod-content');
+  if (!proj) { container.innerHTML = '<div class="no-data">אין פרויקט נבחר</div>'; return; }
+
+  const spaces = proj.spaces || [];
+  if (!spaces.length) { container.innerHTML = '<div class="no-data">אין רהיטים לפרויקט זה</div>'; return; }
+
+  const phaseLabels = {'1':'שלב 1','2':'שלב 2','3':'שלב 3'};
+  const grouped = {'1':[],'2':[],'3':[],'':[]};
+  spaces.forEach(s => grouped[s.phase||''].push(s));
+
+  const mkChip = (sp, s) => {
+    const done = stepDone(sp, s.key);
+    const cls = done ? (s.key==='assembly'||s.key==='assembly_f' ? 'done-assembly' : 'done') : '';
+    const dt = s.key==='fronts' && sp.steps && sp.steps.fronts
+      ? ` (${String(sp.steps.fronts).slice(5).replace('-','/')})` : '';
+    return `<span class="step-chip ${cls}">${done?'✓ ':''}${s.label}${dt}</span>`;
+  };
+
+  const makeCard = sp => {
+    const pct = furniturePct(sp);
+    return `<div class="furn-card">
+      <div class="furn-header">
+        <div>
+          <div class="furn-num">${esc(sp.itemNum||'')}</div>
+          <div class="furn-name">${esc(sp.name)}</div>
+          <div class="furn-finish">${esc(sp.finish||'')}</div>
+        </div>
+        <span class="prod-pct ${pct===100?'done':''}">${pct===100?'✓ הושלם':pct+'%'}</span>
+      </div>
+      <div class="steps-section">
+        <div class="steps-label body">גופים</div>
+        <div class="steps-row">${STEPS_BODY.map(s=>mkChip(sp,s)).join('')}</div>
+      </div>
+      <div class="steps-section">
+        <div class="steps-label fronts">חזיתות</div>
+        <div class="steps-row">${STEPS_FRONTS.map(s=>mkChip(sp,s)).join('')}</div>
+      </div>
+    </div>`;
+  };
+
+  let html = '';
+  ['1','2','3',''].forEach(phase => {
+    const ps = grouped[phase];
+    if (!ps.length) return;
+    if (phase) html += `<div class="phase-header-mini">${phaseLabels[phase]}</div>`;
+    html += ps.map(makeCard).join('');
+  });
+
+  container.innerHTML = html;
 }
 
 // ===== HARDWARE SCREEN =====
