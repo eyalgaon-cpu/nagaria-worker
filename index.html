@@ -3,6 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#5a3e00">
+  <link rel="manifest" href="manifest.json">
   <title>נגרות אייל — עובד</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -712,6 +716,16 @@ async function toggleSpecial(projectId, idx, isDone) {
   const r = await api({ action: 'updateInstallation', projectId, data: instData[projectId] });
   showSnack(r.success ? (isDone ? '✓ סומן' : '↩ הוסר') : '⚠ שגיאה');
 }
+
+async function registerSW() {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    await navigator.serviceWorker.register('/nagaria-worker/sw.js?v=1');
+  } catch (e) {
+    console.error('SW registration failed:', e.message);
+  }
+}
+registerSW();
 loadData();
 </script>
 </body>
