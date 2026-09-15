@@ -720,7 +720,7 @@ async function toggleSpecial(projectId, idx, isDone) {
 async function registerSW() {
   if (!('serviceWorker' in navigator)) return;
   try {
-    await navigator.serviceWorker.register('/nagaria-worker/sw.js?v=1');
+    await navigator.serviceWorker.register('/nagaria-worker/sw.js?v=2');
   } catch (e) {
     console.error('SW registration failed:', e.message);
   }
