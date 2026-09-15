@@ -1,9 +1,9 @@
 // Service Worker — נגרות אייל (עובד)
 // גרסה: כל שינוי כאן יגרום לעדכון אוטומטי
-const CACHE_VERSION = 'nagaria-worker-v1';
+const CACHE_VERSION = 'nagaria-worker-v2';
 
 // index.html לא נשמר בקאש — תמיד נטען טרי מהרשת
-const CACHE_FILES = ['/nagaria-worker/manifest.json'];
+const CACHE_FILES = ['/nagaria-worker/manifest.json', '/nagaria-worker/icons/icon-192.png', '/nagaria-worker/icons/icon-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(
