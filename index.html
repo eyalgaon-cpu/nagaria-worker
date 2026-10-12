@@ -127,6 +127,14 @@
     }
 
     /* FOLLOWUP LIST */
+    .fold-head { cursor:pointer; -webkit-tap-highlight-color:transparent; }
+    .fold-arrow { font-size:12px; color:#999; transition:transform .2s; margin-inline-start:8px; }
+    .fold-arrow.open { transform:rotate(-90deg); }
+    .inst-dot { display:inline-block; width:12px; height:12px; border-radius:50%; border:2px solid #ddd; box-sizing:border-box; vertical-align:middle; margin-inline-end:6px; }
+    .inst-dot.open { background:#F28C28; border-color:#F28C28; }
+    .inst-dot.done { background:#4caf50; border-color:#4caf50; }
+    .furn-card.has-open { border:1px solid #f7c08a; background:#fffaf4; }
+    .inst-sub { font-size:12px; font-weight:700; color:#999; margin:12px 0 4px; }
     .followup-item {
       display: flex; align-items: flex-start; gap: 10px;
       padding: 9px 10px; border-radius: 8px;
@@ -603,6 +611,16 @@ const INST_FIXED_ITEMS = [
   'דיבל 8','דיבל 10','דיבל גבס'
 ];
 
+let instEquipOpen = false;            // ציוד ליציאה סגור כברירת מחדל
+const instOpenPanels = new Set();    // "projectId:spaceId"
+
+function toggleEquip() { instEquipOpen = !instEquipOpen; renderInst(); }
+function toggleInstPanel(sid) {
+  const k = currentProjectId + ':' + sid;
+  if (instOpenPanels.has(k)) instOpenPanels.delete(k); else instOpenPanels.add(k);
+  renderInst();
+}
+
 function renderInst() {
   const proj = projects.find(p => p.id === currentProjectId);
   const container = document.getElementById('inst-content');
@@ -612,87 +630,82 @@ function renderInst() {
   const fixed = projInst.fixed || {};
   const special = projInst.special || [];
   const followup = projInst.followup || {};
-
   const spaces = proj.spaces || [];
-  const spacesWithFollowup = spaces.filter(s => followup[s.id] && followup[s.id].length > 0);
+
+  const row = (checked, onchange, text) => `<div class="followup-item ${checked?'done':''}">
+      <input type="checkbox" class="followup-check" ${checked?'checked':''} onchange="${onchange}">
+      <span class="followup-text">${esc(text)}</span>
+    </div>`;
 
   let html = '';
 
-  // ===== 1. כלים קבועים =====
+  // ===== 1. ציוד ליציאה (כלים קבועים + מיוחד) — מכווץ =====
   const doneFixed = INST_FIXED_ITEMS.filter(k => fixed[k]).length;
-  const fixedHTML = INST_FIXED_ITEMS.map((item, fi) => {
-    const checked = !!fixed[item];
-    return `<div class="followup-item ${checked?'done':''}">
-      <input type="checkbox" class="followup-check" ${checked?'checked':''}
-        onchange="toggleFixedByIdx('${currentProjectId}',${fi},this.checked)">
-      <span class="followup-text">${esc(item)}</span>
+  const openSpecial = special.filter(x => !x.done).length;
+  let equipBody = '';
+  if (instEquipOpen) {
+    equipBody = '<div class="inst-sub">כלים קבועים</div>' +
+      INST_FIXED_ITEMS.map((item, fi) => row(!!fixed[item], `toggleFixedByIdx('${currentProjectId}',${fi},this.checked)`, item)).join('');
+    if (special.length) {
+      equipBody += '<div class="inst-sub">⭐ מיוחד להתקנה זו</div>' +
+        special.map((item, i) => row(item.done, `toggleSpecial('${currentProjectId}',${i},this.checked)`, item.text)).join('');
+    }
+  }
+  html += `<div class="furn-card">
+    <div class="furn-header fold-head" onclick="toggleEquip()">
+      <div><div class="furn-name">🧰 ציוד ליציאה</div></div>
+      <div style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px">
+        <span style="color:${doneFixed===INST_FIXED_ITEMS.length?'#43a047':'#BA7517'}">כלים ${doneFixed}/${INST_FIXED_ITEMS.length}</span>
+        ${openSpecial ? `<span style="color:#BA7517">מיוחד: ${openSpecial} חסר</span>` : ''}
+        <span class="fold-arrow ${instEquipOpen?'open':''}">◀</span>
+      </div>
+    </div>
+    ${equipBody}
+  </div>`;
+
+  // ===== 2. רהיטים עם השלמות — חלוניות מכווצות, עיגול כתום אם נשאר משהו =====
+  const withItems = spaces.filter(s => (followup[s.id] || []).length > 0);
+  const openOf = s => (followup[s.id] || []).filter(x => !x.done).length;
+  withItems.sort((a, b) => (openOf(b) > 0) - (openOf(a) > 0)); // פתוחים קודם
+
+  html += withItems.map(s => {
+    const items = followup[s.id];
+    const open = openOf(s);
+    const isOpen = instOpenPanels.has(currentProjectId + ':' + s.id);
+    const order = items.map((_, i) => i).sort((a, b) => items[a].done - items[b].done);
+    const body = isOpen
+      ? '<div style="margin-top:8px">' + order.map(i => row(items[i].done, `toggleFollowup('${proj.id}','${s.id}',${i},this.checked)`, items[i].text)).join('') + '</div>'
+      : '';
+    return `<div class="furn-card ${open>0?'has-open':''}">
+      <div class="furn-header fold-head" onclick="toggleInstPanel('${s.id}')">
+        <div>
+          <div class="furn-num">${esc(s.itemNum||'')}</div>
+          <div class="furn-name"><span class="inst-dot ${open>0?'open':'done'}"></span>${esc(s.name)}</div>
+        </div>
+        <div style="font-size:13px;font-weight:700;display:flex;align-items:center;color:${open>0?'#BA7517':'#43a047'}">
+          ${open>0 ? open + ' פתוח' : '✓'}
+          <span class="fold-arrow ${isOpen?'open':''}">◀</span>
+        </div>
+      </div>
+      ${body}
     </div>`;
   }).join('');
 
-  html += `<div class="furn-card">
-    <div class="furn-header">
-      <div><div class="furn-name">🧰 ציוד ליציאה</div></div>
-      <div style="font-size:13px;font-weight:700;color:${doneFixed===INST_FIXED_ITEMS.length?'#43a047':'#BA7517'}">
-        ${doneFixed}/${INST_FIXED_ITEMS.length}
-      </div>
-    </div>
-    ${fixedHTML}
-  </div>`;
-
-  // ===== 2. מיוחד להתקנה זו =====
-  if (special.length > 0) {
-    const doneSpecial = special.filter(x=>x.done).length;
-    const specialHTML = special.map((item, i) =>
-      `<div class="followup-item ${item.done?'done':''}">
-        <input type="checkbox" class="followup-check" ${item.done?'checked':''}
-          onchange="toggleSpecial('${currentProjectId}',${i},this.checked)">
-        <span class="followup-text">${esc(item.text)}</span>
-      </div>`
-    ).join('');
-    html += `<div class="furn-card">
-      <div class="furn-header">
-        <div><div class="furn-name">⭐ מיוחד להתקנה זו</div></div>
-        <div style="font-size:13px;font-weight:700;color:${doneSpecial===special.length?'#43a047':'#BA7517'}">
-          ${doneSpecial}/${special.length}
-        </div>
-      </div>
-      ${specialHTML}
-    </div>`;
-  }
-
-  // ===== 3. השלמות בשטח לפי רהיט =====
-  if (spacesWithFollowup.length > 0) {
-    html += spacesWithFollowup.map(s => {
-      const items = followup[s.id] || [];
-      const done = items.filter(x=>x.done).length;
-      const itemsHTML = items.map((item, i) =>
-        `<div class="followup-item ${item.done?'done':''}">
-          <input type="checkbox" class="followup-check" ${item.done?'checked':''}
-            onchange="toggleFollowup('${proj.id}','${s.id}',${i},this.checked)">
-          <span class="followup-text">${esc(item.text)}</span>
-        </div>`
-      ).join('');
-      return `<div class="furn-card">
-        <div class="furn-header">
-          <div>
-            <div class="furn-num">${esc(s.itemNum||'')}</div>
-            <div class="furn-name">${esc(s.name)}</div>
-          </div>
-          <div style="font-size:13px;font-weight:700;color:${done===items.length?'#43a047':'#BA7517'}">
-            ${done}/${items.length}
-          </div>
-        </div>
-        ${itemsHTML}
-      </div>`;
-    }).join('');
-  }
-
-  if (!html) {
-    container.innerHTML = '<div class="no-data">אין נתונים לפרויקט זה</div>';
-    return;
+  if (!withItems.length) {
+    html += '<div class="no-data">אין השלמות בשטח לפרויקט זה</div>';
   }
 
   container.innerHTML = html;
+}
+
+// סימון השלמה בשטח (הפונקציה הייתה חסרה — הסימונים לא נשמרו)
+async function toggleFollowup(projectId, spaceId, idx, isDone) {
+  const projInst = instData[projectId];
+  if (!projInst || !projInst.followup || !projInst.followup[spaceId] || !projInst.followup[spaceId][idx]) return;
+  projInst.followup[spaceId][idx].done = isDone;
+  renderInst();
+  const r = await api({ action: 'updateInstallation', projectId, data: projInst });
+  showSnack(r.success ? (isDone ? '✓ סומן' : '↩ הוסר') : '⚠ שגיאה');
 }
 
 async function toggleFixedByIdx(projectId, idx, isDone) {
@@ -720,7 +733,7 @@ async function toggleSpecial(projectId, idx, isDone) {
 async function registerSW() {
   if (!('serviceWorker' in navigator)) return;
   try {
-    await navigator.serviceWorker.register('/nagaria-worker/sw.js?v=2');
+    await navigator.serviceWorker.register('/nagaria-worker/sw.js?v=3');
   } catch (e) {
     console.error('SW registration failed:', e.message);
   }
